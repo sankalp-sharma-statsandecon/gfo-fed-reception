@@ -96,6 +96,15 @@
 <div class="counter" id="checkinCount">✅ 0 people have checked in</div>
 
 <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Search names...">
+<h3>Manual Entry</h3>
+<div>
+  <input id="manualFirst" placeholder="First Name">
+  <input id="manualLast" placeholder="Last Name">
+  <input id="manualTitle" placeholder="Title">
+  <input id="manualOrg" placeholder="Organization">
+  <input id="manualType" placeholder="Type">
+  <button onclick="manualCheckIn()">Add and Check In</button>
+</div>
 
 <table id="namesTable">
   <thead>
@@ -247,7 +256,31 @@
       document.exitFullscreen();
     }
   }
+  function manualCheckIn() {
+  const first = document.getElementById('manualFirst').value.trim();
+  const last = document.getElementById('manualLast').value.trim();
+  const title = document.getElementById('manualTitle').value.trim();
+  const org = document.getElementById('manualOrg').value.trim();
+  const type = document.getElementById('manualType').value.trim();
 
+  if (!first || !last) {
+    alert("First and Last Name are required.");
+    return;
+  }
+
+  const newEntry = { first, last, title, org, type };
+  checkedIn.push(newEntry);
+  saveToStorage();
+  if (currentView === 'checkedIn') renderTable();
+
+  // Clear fields
+  document.getElementById('manualFirst').value = '';
+  document.getElementById('manualLast').value = '';
+  document.getElementById('manualTitle').value = '';
+  document.getElementById('manualOrg').value = '';
+  document.getElementById('manualType').value = '';
+}
+  
   window.onload = () => {
     if (loadFromStorage()) {
       showList('notCheckedIn');
