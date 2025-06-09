@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Event Check-In</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      font-size: 1.2rem;
+      background: #f5f5f5;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+      table-layout: auto;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    button {
+      padding: 6px 12px;
+      margin: 5px 5px 5px 0;
+      font-size: 1rem;
+    }
+
+    .checkin-btn {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .undo-btn {
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .checkin-btn:hover, .undo-btn:hover {
+      opacity: 0.8;
+    }
+
+    #searchInput {
+      margin: 10px 0;
+      padding: 8px;
+      width: 100%;
+      max-width: 400px;
+      font-size: 1rem;
+    }
+
+    .counter {
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 1.3rem;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        font-size: 1rem;
+      }
+
+      table, th, td {
+        font-size: 0.9rem;
+      }
+
+      .checkin-btn, .undo-btn {
+        font-size: 0.9rem;
+        padding: 5px 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Grain Farmers of Ontario - Federal Reception - Queens Fare - June 11, 2025 (4.30 - 7.30 pm)</h1>
+
+<input type="file" id="csvFile" accept=".csv" /><br><br>
+
+<button onclick="showList('notCheckedIn')">Show Not Checked-In</button>
+<button onclick="showList('checkedIn')">Show Checked-In</button>
+<button onclick="resetStorage()">Reset Check-Ins</button>
+<button onclick="toggleFullScreen()">Toggle Full Screen</button>
+
+<div class="counter" id="checkinCount">✅ 0 people have checked in</div>
+
+<input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Search names...">
+
+<table id="namesTable">
+  <thead>
+    <tr>
+      <th>Action</th>
+      <th>First</th>
+      <th>Last</th>
+      <th>Title</th>
+      <th>Organization</th>
+      <th>Type</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+  let notCheckedIn = [];
+  let checkedIn = [];
+  let originalList = [];
+  let currentView = 'notCheckedIn';
+
+  document.getElementById('csvFile').addEventListener('change', handleCSV);
+
+  function handleCSV(event) {
+    if (confirm("Uploading a new file will reset all check-in data. Continue?")) {
+      clearStorage();
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const lines = e.target.result.split('\n').filter(line => line.trim() !== "");
+        const headers = lines[0].split(',').map(h => h.trim());
+        const data = lines.slice(1).map(line => {
+          const values = line.split(',').map(v => v.trim());
+          return {
+            first: values[headers.indexOf("First Name")] || "",
+            last: values[headers.indexOf("Last Name")] || "",
+            title: values[headers.indexOf("Title")] || "",
+            org: values[headers.indexOf("Organization")] || "",
+            type: values[headers.indexOf("Type")] || ""
+          };
+        });
+        originalList = [...data];
+        notCheckedIn = [...data];
+        checkedIn = [];
+        saveToStorage();
+        showList('notCheckedIn');
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  function showList(listType) {
+    currentView = listType;
+    document.getElementById('searchInput').value = '';
+    renderTable();
+  }
+
+  function renderTable() {
+    const tableBody = document.querySelector("#namesTable tbody");
+    tableBody.innerHTML = '';
+    const list = currentView === 'notCheckedIn' ? notCheckedIn : checkedIn;
+    list.forEach((person, index) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${
+          currentView === 'notCheckedIn'
+            ? `<button class="checkin-btn" onclick="checkIn(${index})">Check In</button>`
+            : `<button class="undo-btn" onclick="unCheckIn(${index})">Undo</button>`
+        }</td>
+        <td>${person.first}</td>
+        <td>${person.last}</td>
+        <td>${person.title}</td>
+        <td>${person.org}</td>
+        <td>${person.type}</td>
+      `;
+      tableBody.appendChild(row);
+    });
+    updateCounter();
+  }
+
+  function checkIn(index) {
+    checkedIn.push(notCheckedIn[index]);
+    notCheckedIn.splice(index, 1);
+    saveToStorage();
+    renderTable();
+  }
+
+  function unCheckIn(index) {
+    notCheckedIn.push(checkedIn[index]);
+    checkedIn.splice(index, 1);
+    saveToStorage();
+    renderTable();
+  }
+
+  function updateCounter() {
+    document.getElementById('checkinCount').textContent =
+      `✅ ${checkedIn.length} people have checked in`;
+  }
+
+  function filterTable() {
+    const input = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll("#namesTable tbody tr");
+    rows.forEach(row => {
+      const text = row.innerText.toLowerCase();
+      row.style.display = text.includes(input) ? "" : "none";
+    });
+  }
+
+  function saveToStorage() {
+    localStorage.setItem('checkedInList', JSON.stringify(checkedIn));
+    localStorage.setItem('notCheckedInList', JSON.stringify(notCheckedIn));
+    localStorage.setItem('originalList', JSON.stringify(originalList));
+  }
+
+  function loadFromStorage() {
+    const checked = localStorage.getItem('checkedInList');
+    const notChecked = localStorage.getItem('notCheckedInList');
+    const original = localStorage.getItem('originalList');
+    if (checked && notChecked && original) {
+      checkedIn = JSON.parse(checked);
+      notCheckedIn = JSON.parse(notChecked);
+      originalList = JSON.parse(original);
+      return true;
+    }
+    return false;
+  }
+
+  function clearStorage() {
+    localStorage.removeItem('checkedInList');
+    localStorage.removeItem('notCheckedInList');
+  }
+
+  function resetStorage() {
+    if (confirm("Are you sure you want to reset all check-ins?")) {
+      checkedIn = [];
+      notCheckedIn = [...originalList];
+      clearStorage();
+      saveToStorage();
+      renderTable();
+    }
+  }
+
+  function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        alert(`Error attempting to enter fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  }
+
+  window.onload = () => {
+    if (loadFromStorage()) {
+      showList('notCheckedIn');
+    }
+  };
+</script>
+
+</body>
+</html>
